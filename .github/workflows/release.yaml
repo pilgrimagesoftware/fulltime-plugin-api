@@ -17,6 +17,6 @@ jobs:
     with:
       tag: ${{ inputs.tag }}
       test-args: "--all-features --workspace"
-      trusted-publishing: false
+      trusted-publishing: true
       merge-back-branch: develop
     secrets: inherit
