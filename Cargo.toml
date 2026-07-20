@@ -1,6 +1,6 @@
 [package]
 name = "fulltime-plugin-api"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.85"
 description = "Canonical league-data schema, data-provider WIT interface, and plugin manifest format shared by the FullTime plugin host and data-provider plugins."
