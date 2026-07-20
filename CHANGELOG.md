@@ -1,3 +1,17 @@
+
+
+### Added
+
+- Canonical league-data schema, data-provider WIT interface, and manifest format
+
+
+### Documentation
+
+- Propose define-league-data-contract change
+
+- Add security policy
+
+
 # Changelog
 
 All notable changes to this project are documented here.
