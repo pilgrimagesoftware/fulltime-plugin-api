@@ -93,13 +93,25 @@ version number today. Flagging for the `fulltime-plugin-api` maintainer; not blo
 change, since collapsing them into one major bump is still correct, just coarser than it
 could be.
 
-**`bindings` stays a private module; only specific items are re-exported.**
-Rationale: `wit_bindgen::generate!` produces internal plumbing (raw FFI shims, `cabi_*`
-functions) alongside the useful `Guest` trait and `export!` macro. `pub use` on the
-specific items (`pub use bindings::export;`, a re-exported `Guest` trait alias, and the
-`host_fetch` wrapper function) gives downstream plugins exactly what they need without
-exposing generated internals as part of this crate's public API surface, which would make
-future `wit-bindgen` version bumps more likely to break downstream code.
+**`bindings` stays a private module; `export!`, `Guest`, and the generated `exports` tree
+are re-exported — more of the generated surface than originally planned.**
+The `mod bindings;` module itself stays private, and `pub use bindings::export;` plus a
+`Guest` alias were the intended minimal surface. In practice, `wit_bindgen`'s single-arg
+`export!($ty)` macro expands to `self::export!($ty with_types_in self)` — `self` resolves
+to the *caller's* module, so it only compiles when the macro is invoked inside this crate
+itself. A downstream crate must use the macro's `with_types_in <path>` form
+(`fulltime_plugin_api::export!(MyPlugin with_types_in fulltime_plugin_api)`), and that form
+requires the full generated `exports::fulltime::plugin_api::data_provider` module path to
+be reachable at that root — which means `exports` itself has to be `pub use`d, not just the
+`Guest` trait pulled out of it. Verified end-to-end by cross-compiling a scratch crate
+depending on this one for `wasm32-wasip2`; the single-item re-export alone produced
+`cannot find export in self`, `with_types_in` alone then produced `cannot find exports in
+fulltime_plugin_api`, and only re-exporting `exports` as well resolved both. This exposes
+more of `wit_bindgen`'s generated internals (the full `exports` module tree, not just
+`Guest`) than the minimal-surface goal above intended — an acceptable trade because the
+alternative (no working `export!` for any downstream crate) defeats the point of this
+change entirely, but worth a future `wit-bindgen` version bump checking this path shape
+hasn't changed.
 
 **`host_fetch` is a thin wrapper, not a trait.**
 Rationale: `wit_bindgen::generate!`'s import binding for `host.fetch` is already a plain

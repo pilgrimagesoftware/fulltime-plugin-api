@@ -31,6 +31,7 @@ pub use bindings::fulltime::plugin_api::errors::*;
 pub use bindings::fulltime::plugin_api::types::*;
 
 pub use bindings::export;
+pub use bindings::exports;
 pub use bindings::exports::fulltime::plugin_api::data_provider::Guest;
 
 /// Fetches the response body for an HTTP GET request to `url`, via the host's `fetch`
