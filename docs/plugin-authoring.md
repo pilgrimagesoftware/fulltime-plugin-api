@@ -50,6 +50,31 @@ instead of letting an upstream failure surface as an unhandled trap:
 - `schema-mapping-failure` — the upstream response can't be represented in the canonical
   schema.
 
+### 2b. The `host` interface (network access)
+
+Plugins have no direct network access — a WASM component can't open a socket on its own.
+Every upstream HTTP call goes through the `host` interface's `fetch` import, which
+`world plugin` requires (`import host;`). Call this crate's [`host_fetch`] wrapper rather
+than the raw generated binding:
+
+```rust,ignore
+let body: Vec<u8> = fulltime_plugin_api::host_fetch("https://api.openligadb.de/getbltable/bl1/2024")?;
+```
+
+`host_fetch` only links and behaves correctly when compiled as part of a real `wasm32`
+component instantiated by a host implementing `host.fetch` — it has no behavior of its own
+outside that. Two consequences for how you structure a plugin:
+
+- Gate calls to it behind `#[cfg(target_arch = "wasm32")]` (or an equivalent feature flag).
+- For native unit/integration tests, define your own small injectable trait (a `Fetcher`
+  taking a URL and returning bytes or an error) that your `wasm32` build implements by
+  delegating to `host_fetch`, and that your tests implement with fixture data. This mirrors
+  the pattern `Plugins/Bundesliga` uses.
+
+A non-2xx status or any other transport failure comes back as this crate's
+[`NetworkFailure`] — the same type your `data-provider` operations already return inside
+[`ProviderError::NetworkFailure`].
+
 ### 3. The manifest
 
 Every plugin ships a TOML manifest, parsed at load time by [`Manifest::parse`]:
@@ -58,7 +83,7 @@ Every plugin ships a TOML manifest, parsed at load time by [`Manifest::parse`]:
 id = "bundesliga"
 version = "0.1.0"
 schema_version = "1.0"
-interface_version = "1.0"
+interface_version = "2.0"
 network_hosts = ["api.openligadb.de"]
 ```
 
@@ -86,19 +111,51 @@ When either version changes:
 - **Major bump**: breaking (removed/renamed field, changed function signature). Plugins
   must be rebuilt and republish their manifest's target version.
 
+## Implementing and exporting the world
+
+This crate re-exports what `wit_bindgen::generate!` produces for the `data-provider`
+export so you don't regenerate your own (nominally incompatible) copy of the canonical
+types from a vendored WIT file:
+
+- [`Guest`] — the trait to implement, one method per operation in the table above, using
+  this crate's own `Team`/`Fixture`/`Standings`/`Competition`/`ProviderError` types
+  directly.
+- [`export!`] — the macro that exports your `Guest` implementation as the component's
+  `data-provider` interface.
+
+```rust,ignore
+struct MyPlugin;
+
+impl fulltime_plugin_api::Guest for MyPlugin {
+    fn list_competitions() -> Result<Vec<fulltime_plugin_api::Competition>, fulltime_plugin_api::ProviderError> {
+        // ...
+    }
+    // fetch_fixtures, fetch_results, fetch_standings, fetch_metadata ...
+}
+
+fulltime_plugin_api::export!(MyPlugin);
+```
+
 ## Getting started
 
 1. Add this crate as a dependency:
    ```toml
    [dependencies]
-   fulltime-plugin-api = "0.1"
+   fulltime-plugin-api = "0.2"
    ```
-2. Implement the `data-provider` world's exported interface against your upstream data
-   source, mapping its response shape into the canonical schema types.
-3. Write your `manifest.toml` declaring the network hosts you call.
-4. Build to a WASM component target and load it against the host runtime in `Apps/rust`.
+2. Implement [`Guest`] against your upstream data source, mapping its response shape into
+   the canonical schema types, and calling [`host_fetch`] for every upstream request.
+3. Call [`export!`] with your implementation.
+4. Write your `manifest.toml` declaring the network hosts you call and `interface_version
+   = "2.0"`.
+5. Build to a WASM component target and load it against the host runtime in `Apps/rust`.
 
 [`Manifest::parse`]: https://docs.rs/fulltime-plugin-api/latest/fulltime_plugin_api/struct.Manifest.html#method.parse
 [`SCHEMA_VERSION`]: https://docs.rs/fulltime-plugin-api/latest/fulltime_plugin_api/constant.SCHEMA_VERSION.html
 [`INTERFACE_VERSION`]: https://docs.rs/fulltime-plugin-api/latest/fulltime_plugin_api/constant.INTERFACE_VERSION.html
 [`Version::accepts`]: https://docs.rs/fulltime-plugin-api/latest/fulltime_plugin_api/struct.Version.html#method.accepts
+[`Guest`]: https://docs.rs/fulltime-plugin-api/latest/fulltime_plugin_api/trait.Guest.html
+[`export!`]: https://docs.rs/fulltime-plugin-api/latest/fulltime_plugin_api/macro.export.html
+[`host_fetch`]: https://docs.rs/fulltime-plugin-api/latest/fulltime_plugin_api/fn.host_fetch.html
+[`NetworkFailure`]: https://docs.rs/fulltime-plugin-api/latest/fulltime_plugin_api/struct.NetworkFailure.html
+[`ProviderError::NetworkFailure`]: https://docs.rs/fulltime-plugin-api/latest/fulltime_plugin_api/enum.ProviderError.html#variant.NetworkFailure

@@ -1,34 +1,32 @@
 
+## [0.1.0] - 2026-07-20
 
-### Added
-
-- Canonical league-data schema, data-provider WIT interface, and manifest format
-
-
-### Documentation
-
-- Propose define-league-data-contract change
-
-- Add security policy
-
-
-# Changelog
-
-All notable changes to this project are documented here.
 
 ## [Unreleased]
 
 ### Added
 
-- Canonical `league-data-schema` types: competitions, teams, fixtures/results, and standings,
-  covering both single-table and group-based competition formats.
-- `data-provider-plugin-api` WIT interface (`wit/data-provider.wit`) for plugins to implement,
-  plus generated Rust bindings.
-- `plugin-manifest-format`: plugin manifest schema and parser.
-- Independent schema and interface version identifiers, each with major/minor
-  consumer-compatibility semantics.
+- Add the `host` WIT interface (`fetch`) and wire it into `world plugin` as an import,
+  so a plugin component can no longer instantiate without a host that supplies network
+  access **[BREAKING]**
+- Re-export the `Guest` trait and `export!` macro for the `data-provider` interface, and
+  add a `host_fetch` wrapper around the generated `fetch` import, so a downstream plugin
+  can implement and export the world using this crate's own canonical types
+- Bump `INTERFACE_VERSION` to `2.0` **[BREAKING]**
 
-### Tooling
+### Documentation
 
-- Pinned `wit-bindgen` to `0.59.0` (MSRV `1.85.0`), matched by `wasmtime` `46.0.1` on the host
-  side (`Apps/rust`). Bump both together when either changes.
+- Add badges, CONTRIBUTING, CODE_OF_CONDUCT, and RELEASING
+- Document implementing/exporting the `Guest` trait and using `host_fetch` in
+  `docs/plugin-authoring.md`
+
+## [0.1.0] - 2026-07-20
+
+### Added
+
+- Canonical league-data schema, data-provider WIT interface, and manifest format
+
+### Documentation
+
+- Propose define-league-data-contract change
+- Add security policy

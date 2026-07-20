@@ -12,4 +12,6 @@ wit_bindgen::generate!({
     path: "wit",
     generate_all,
     additional_derives: [serde::Serialize, serde::Deserialize, Clone, PartialEq],
+    pub_export_macro: true,
+    export_macro_name: "export",
 });
