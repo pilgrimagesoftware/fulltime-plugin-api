@@ -48,6 +48,11 @@ assert!(SCHEMA_VERSION.accepts(manifest.schema_version));
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
+## Building a plugin
+
+See [`docs/plugin-authoring.md`](docs/plugin-authoring.md) for a walkthrough of the WIT
+interface, manifest format, and versioning policy.
+
 ## Change log
 
 [CHANGELOG](CHANGELOG.md)
