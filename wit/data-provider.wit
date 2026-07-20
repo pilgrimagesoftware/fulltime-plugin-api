@@ -1,0 +1,143 @@
+package fulltime:plugin-api@0.1.0;
+
+/// Canonical league-data schema shared by the host and every data-provider plugin.
+///
+/// See `openspec/changes/define-league-data-contract/specs/league-data-schema/spec.md`
+/// for the requirements this interface satisfies.
+interface types {
+    /// A team taking part in one or more competitions.
+    record team {
+        /// Canonical team identifier, stable across providers.
+        id: string,
+        /// Full display name.
+        name: string,
+        /// Short display name (e.g. for narrow UI columns).
+        short-name: string,
+    }
+
+    /// A competition (league, cup, or tournament).
+    record competition {
+        /// Canonical competition identifier, stable across providers.
+        id: string,
+        /// Full display name.
+        name: string,
+    }
+
+    /// Lifecycle state of a fixture.
+    enum fixture-status {
+        scheduled,
+        live,
+        finished,
+        postponed,
+        cancelled,
+    }
+
+    /// Final or in-progress score for a fixture.
+    record score {
+        home: u16,
+        away: u16,
+    }
+
+    /// A scheduled or completed match, covering both single-table league fixtures and
+    /// group-stage/knockout fixtures using the same shape.
+    record fixture {
+        /// Canonical fixture identifier, stable across providers.
+        id: string,
+        competition-id: string,
+        /// Named group this fixture belongs to (e.g. "Group A"), absent for single-table
+        /// league formats.
+        group: option<string>,
+        /// Kickoff time as an RFC 3339 timestamp.
+        kickoff: string,
+        home-team: team,
+        away-team: team,
+        venue: option<string>,
+        status: fixture-status,
+        score: option<score>,
+    }
+
+    /// One row of a standings table.
+    record standings-row {
+        team: team,
+        rank: u16,
+        played: u16,
+        won: u16,
+        drawn: u16,
+        lost: u16,
+        goals-for: u16,
+        goals-against: u16,
+        points: u16,
+    }
+
+    /// One ranked table, optionally named (e.g. "Group A") for group-based formats. A
+    /// single-table league format has exactly one unnamed group.
+    record standings-group {
+        name: option<string>,
+        rows: list<standings-row>,
+    }
+
+    /// Standings for a competition, as one or more groups sharing the same row shape.
+    record standings {
+        competition-id: string,
+        groups: list<standings-group>,
+    }
+}
+
+/// Structured errors a plugin returns for upstream-source failures.
+///
+/// See `openspec/changes/define-league-data-contract/specs/data-provider-plugin-api/spec.md`
+/// ("Structured Error Types").
+interface errors {
+    /// A plugin's upstream HTTP call failed at the network layer.
+    record network-failure {
+        message: string,
+    }
+
+    /// A plugin's upstream source responded with a rate-limit error.
+    record rate-limited {
+        /// Seconds to wait before retrying, if the upstream source provided one.
+        retry-after-seconds: option<u32>,
+    }
+
+    /// A plugin received upstream data it could not map to the canonical schema.
+    record schema-mapping-failure {
+        message: string,
+    }
+
+    /// The error a data-provider operation returns on failure.
+    variant provider-error {
+        network-failure(network-failure),
+        rate-limited(rate-limited),
+        schema-mapping-failure(schema-mapping-failure),
+    }
+}
+
+/// The contract a data-provider plugin implements to supply league/competition data to
+/// the host. Every operation returns data typed against the canonical `types` schema; the
+/// interface defines no plugin-specific or provider-specific return types.
+///
+/// See `openspec/changes/define-league-data-contract/specs/data-provider-plugin-api/spec.md`.
+interface data-provider {
+    use types.{competition, fixture, standings};
+    use errors.{provider-error};
+
+    /// List the competitions this plugin can supply data for.
+    list-competitions: func() -> result<list<competition>, provider-error>;
+
+    /// Fetch upcoming and in-progress fixtures for a competition.
+    fetch-fixtures: func(competition-id: string) -> result<list<fixture>, provider-error>;
+
+    /// Fetch completed fixtures (results) for a competition.
+    fetch-results: func(competition-id: string) -> result<list<fixture>, provider-error>;
+
+    /// Fetch standings for a competition.
+    fetch-standings: func(competition-id: string) -> result<standings, provider-error>;
+
+    /// Fetch metadata for a single competition.
+    fetch-metadata: func(competition-id: string) -> result<competition, provider-error>;
+}
+
+/// The world a data-provider plugin component implements.
+world plugin {
+    export data-provider;
+}
