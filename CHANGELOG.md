@@ -3,10 +3,6 @@
 
 ## [0.1.1] - 2026-07-20
 
-### Fixed
-
-- Conflicts
-
 ### Added
 
 - Add the `host` WIT interface (`fetch`) and wire it into `world plugin` as an import,
