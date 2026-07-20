@@ -5,65 +5,11 @@ on:
   push:
     branches: [develop]
 
-permissions:
-  contents: read
-
-concurrency: ci
-
 jobs:
-  test:
-    name: Validate on ${{ matrix.name }}
-
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Linux
-            os: ubuntu-latest
-          - name: macOS (Apple Silicon)
-            os: macos-latest
-
-    steps:
-      - name: Checkout
-        id: checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-          show-progress: true
-
-      - name: Install Rust
-        id: install_rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - name: Setup Rust cache
-        id: rust_cache
-        uses: Swatinem/rust-cache@v2
-
-      - name: Check formatting
-        id: check_fmt
-        run: |
-          cargo fmt --check
-
-      - name: Clippy
-        id: clippy
-        run: |
-          cargo clippy --all-targets --all-features -- -D warnings
-
-      - name: Test
-        id: test
-        run: |
-          cargo test --all-features --workspace
-          cargo test --no-default-features
-          cargo test --doc
-
-      - name: Docs
-        id: docs
-        env:
-          RUSTDOCFLAGS: -D warnings
-        run: |
-          cargo doc --no-deps
+  ci:
+    uses: pilgrimagesoftware/github-actions/.github/workflows/rust-ci.yaml@master
+    with:
+      test-args: "--all-features --workspace"
+      no-default-features-test: true
+      doc-test: true
+      doc-build: true
