@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-20
+
+
+## [Unreleased]
+
 ### Added
 
 - Add the `host` WIT interface (`fetch`) and wire it into `world plugin` as an import,
