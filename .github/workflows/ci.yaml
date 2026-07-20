@@ -5,34 +5,64 @@ on:
   push:
     branches: [develop]
 
+permissions:
+  contents: read
+
+concurrency: ci
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: Validate on ${{ matrix.name }}
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-latest
+          - name: macOS (Apple Silicon)
+            os: macos-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          show-progress: true
 
       - name: Install Rust
+        id: install_rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@v2
+      - name: Setup Rust cache
+        id: rust_cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Check formatting
+        id: check_fmt
         run: |
-          cargo fmt --all -- --check
+          cargo fmt --check
 
       - name: Clippy
+        id: clippy
         run: |
           cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Test
+        id: test
         run: |
           cargo test --all-features --workspace
           cargo test --no-default-features
           cargo test --doc
 
       - name: Docs
+        id: docs
         env:
           RUSTDOCFLAGS: -D warnings
         run: |
