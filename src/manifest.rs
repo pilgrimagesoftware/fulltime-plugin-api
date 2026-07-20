@@ -249,4 +249,29 @@ mod tests {
         "#;
         assert!(Manifest::parse(toml).is_ok());
     }
+
+    #[test]
+    fn interface_version_2_0_is_accepted_by_the_current_interface_version() {
+        let toml = r#"
+            id = "bundesliga"
+            version = "0.1.0"
+            schema_version = "1.0"
+            interface_version = "2.0"
+            network_hosts = ["api.openligadb.de"]
+        "#;
+        let manifest = Manifest::parse(toml).unwrap();
+        assert_eq!(manifest.interface_version, Version::new(2, 0));
+        assert!(crate::INTERFACE_VERSION.accepts(manifest.interface_version));
+    }
+
+    #[test]
+    fn interface_version_1_0_is_rejected_after_the_host_fetch_major_bump() {
+        // A plugin built before `host.fetch` existed declares interface_version 1.0; the
+        // host's INTERFACE_VERSION is now 2.0 (major bump), so it must not accept it — see
+        // openspec/changes/add-host-fetch-capability/specs/data-provider-plugin-api/spec.md
+        // ("Plugin built before the host-fetch import existed").
+        let manifest = Manifest::parse(valid_toml()).unwrap();
+        assert_eq!(manifest.interface_version, Version::new(1, 0));
+        assert!(!crate::INTERFACE_VERSION.accepts(manifest.interface_version));
+    }
 }

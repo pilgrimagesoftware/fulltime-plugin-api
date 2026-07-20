@@ -29,7 +29,7 @@ See [`Version::accepts`].
 
 ```toml
 [dependencies]
-fulltime-plugin-api = "0.1"
+fulltime-plugin-api = "0.2"
 ```
 
 ```rust

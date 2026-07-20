@@ -112,6 +112,22 @@ interface errors {
     }
 }
 
+/// The host capability every data-provider plugin imports for upstream network access.
+/// Plugins have no direct network access; every HTTP call goes through `fetch`, which the
+/// host scopes to the hosts declared in the plugin's manifest `network_hosts` field.
+///
+/// See `openspec/changes/add-host-fetch-capability/specs/host-fetch-capability/spec.md`.
+interface host {
+    use errors.{network-failure};
+
+    /// Fetches the response body for an HTTP GET request to `url`, via the host.
+    ///
+    /// A non-2xx status or any other transport-level failure is reported as
+    /// `network-failure`, not a distinct variant — from the plugin's perspective both mean
+    /// "the request didn't succeed."
+    fetch: func(url: string) -> result<list<u8>, network-failure>;
+}
+
 /// The contract a data-provider plugin implements to supply league/competition data to
 /// the host. Every operation returns data typed against the canonical `types` schema; the
 /// interface defines no plugin-specific or provider-specific return types.
@@ -139,5 +155,6 @@ interface data-provider {
 
 /// The world a data-provider plugin component implements.
 world plugin {
+    import host;
     export data-provider;
 }
