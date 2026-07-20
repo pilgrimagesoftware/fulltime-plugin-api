@@ -39,5 +39,5 @@
 
 - [x] 5.1 Write crate-level documentation covering the schema, WIT interface, manifest
   format, and versioning policy for plugin authors
-- [ ] 5.2 Cut an initial versioned release for `Apps/rust` and `Plugins/Bundesliga` to
+- [x] 5.2 Cut an initial versioned release for `Apps/rust` and `Plugins/Bundesliga` to
   depend on
