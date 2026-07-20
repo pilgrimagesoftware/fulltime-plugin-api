@@ -31,8 +31,9 @@ The tag push triggers **Release**, which:
 
 ## crates.io authentication
 
-Publishing currently uses a static `CRATES_API_KEY` repo secret (a crates.io API token), not OIDC trusted publishing — trusted publishing requires the crate to already exist on crates.io, which requires a first publish via a token.
-Once `fulltime-plugin-api` exists on crates.io, configure it as a trusted publisher there and flip `release.yaml`'s `trusted-publishing` input to `true` (see [`rust-release.yaml`](https://github.com/pilgrimagesoftware/github-actions/blob/master/.github/workflows/rust-release.yaml)), then the `CRATES_API_KEY` secret can be removed.
+Publishing uses crates.io OIDC trusted publishing (`rust-lang/crates-io-auth-action`, via `release.yaml`'s `trusted-publishing: true` input) — no long-lived token in CI.
+This only became possible after the crate existed on crates.io (bootstrapped by a one-time publish with the `CRATES_API_KEY` token for `v0.1.0`), then configuring `fulltime-plugin-api` as a trusted publisher on crates.io.
+The `CRATES_API_KEY` repo secret is no longer used by `release.yaml` and can be removed.
 
 ## Manually re-running a release
 
