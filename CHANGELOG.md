@@ -1,4 +1,29 @@
 
+## [0.2.0] - 2026-07-21
+
+
+### Added
+
+- Add name and localized [names] display-name fields
+
+
+### Documentation
+
+- Drop spurious "Fixed: Conflicts" changelog entry
+
+- Document squash-merge subject requirement in RELEASING.md
+
+- Fix wrong export! form and stale 0.2 version references
+
+
+### Fixed
+
+- Conflicts
+
+- Add explicit permissions to CI/release caller workflows
+
+
+
 ## [Unreleased]
 
 ### Added
