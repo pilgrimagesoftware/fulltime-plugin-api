@@ -3,8 +3,10 @@
 //!
 //! This module validates manifest structure and field presence/format only. It performs
 //! no host-side enforcement (network reachability, capability granting, enable/disable
-//! state) — that belongs to the plugin host runtime. See
+//! state) - that belongs to the plugin host runtime. See
 //! `openspec/changes/define-league-data-contract/specs/plugin-manifest-format/spec.md`.
+
+use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
@@ -24,21 +26,33 @@ use crate::version::Version;
 ///     schema_version = "1.0"
 ///     interface_version = "1.0"
 ///     network_hosts = ["api.openligadb.de"]
+///
+///     [names]
+///     de = "Bundesliga"
+///     fr = "Bundesliga"
 /// "#;
 ///
 /// let manifest = Manifest::parse(toml).unwrap();
 /// assert_eq!(manifest.id, "bundesliga");
 /// assert_eq!(manifest.name, "Bundesliga");
 /// assert_eq!(manifest.network_hosts, ["api.openligadb.de"]);
+/// assert_eq!(manifest.localized_name("de"), "Bundesliga");
+/// assert_eq!(manifest.localized_name("es"), "Bundesliga"); // falls back to `name`
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Manifest {
     /// Plugin identifier, unique among plugins the host loads.
     pub id: String,
     /// Human-readable display name (e.g. `"Bundesliga"`), distinct from
-    /// `id`. A plugin manifest is the only place this is declared — hosts
+    /// `id`. A plugin manifest is the only place this is declared - hosts
     /// must not derive a display name from `id` (e.g. by title-casing it).
+    /// Used as the fallback when no entry in `localized_names` matches the
+    /// host's current locale.
     pub name: String,
+    /// Locale-keyed display names (e.g. `"de"` -> `"Bundesliga"`), from the
+    /// manifest's `[names]` table. Prefer [`Manifest::localized_name`] over
+    /// reading this directly, since it applies the fallback to `name`.
+    pub localized_names: BTreeMap<String, String>,
     /// Plugin's own release version (not a contract version).
     pub version: String,
     /// Canonical schema version this plugin's output targets.
@@ -47,6 +61,17 @@ pub struct Manifest {
     pub interface_version: Version,
     /// Network hosts this plugin requires access to.
     pub network_hosts: Vec<String>,
+}
+
+impl Manifest {
+    /// Returns the display name for `locale`, falling back to [`name`](Self::name)
+    /// if the manifest declares no entry for that locale in `[names]`.
+    #[must_use]
+    pub fn localized_name(&self, locale: &str) -> &str {
+        self.localized_names
+            .get(locale)
+            .map_or(self.name.as_str(), String::as_str)
+    }
 }
 
 /// A manifest field that failed presence or format validation.
@@ -64,6 +89,8 @@ pub enum ManifestField {
     InterfaceVersion,
     /// The `network_hosts` field.
     NetworkHosts,
+    /// The `[names]` table.
+    LocalizedNames,
 }
 
 impl core::fmt::Display for ManifestField {
@@ -75,6 +102,7 @@ impl core::fmt::Display for ManifestField {
             Self::SchemaVersion => "schema_version",
             Self::InterfaceVersion => "interface_version",
             Self::NetworkHosts => "network_hosts",
+            Self::LocalizedNames => "names",
         };
         f.write_str(name)
     }
@@ -102,6 +130,8 @@ pub enum ManifestError {
 struct RawManifest {
     id: Option<String>,
     name: Option<String>,
+    #[serde(default)]
+    names: BTreeMap<String, String>,
     version: Option<String>,
     schema_version: Option<String>,
     interface_version: Option<String>,
@@ -144,6 +174,17 @@ impl Manifest {
             });
         }
 
+        if raw
+            .names
+            .values()
+            .any(|localized_name| localized_name.trim().is_empty())
+        {
+            return Err(ManifestError::InvalidField {
+                field: ManifestField::LocalizedNames,
+                reason: "[names] entries must not be empty".to_owned(),
+            });
+        }
+
         if network_hosts.iter().any(|host| host.trim().is_empty()) {
             return Err(ManifestError::InvalidField {
                 field: ManifestField::NetworkHosts,
@@ -154,6 +195,7 @@ impl Manifest {
         Ok(Self {
             id,
             name,
+            localized_names: raw.names,
             version,
             schema_version,
             interface_version,
@@ -189,6 +231,10 @@ mod tests {
             schema_version = "1.0"
             interface_version = "1.0"
             network_hosts = ["api.openligadb.de"]
+
+            [names]
+            de = "Bundesliga"
+            fr = "Bundesliga"
         "#
     }
 
@@ -199,6 +245,60 @@ mod tests {
         assert_eq!(manifest.name, "Bundesliga");
         assert_eq!(manifest.schema_version, Version::new(1, 0));
         assert_eq!(manifest.network_hosts, vec!["api.openligadb.de".to_owned()]);
+        assert_eq!(
+            manifest.localized_names.get("de"),
+            Some(&"Bundesliga".to_owned())
+        );
+    }
+
+    #[test]
+    fn localized_name_returns_locale_specific_value() {
+        let manifest = Manifest::parse(valid_toml()).unwrap();
+        assert_eq!(manifest.localized_name("fr"), "Bundesliga");
+    }
+
+    #[test]
+    fn localized_name_falls_back_to_name_when_locale_is_missing() {
+        let manifest = Manifest::parse(valid_toml()).unwrap();
+        assert_eq!(manifest.localized_name("es"), manifest.name);
+    }
+
+    #[test]
+    fn parses_a_manifest_with_no_names_table() {
+        let toml = r#"
+            id = "bundesliga"
+            name = "Bundesliga"
+            version = "0.1.0"
+            schema_version = "1.0"
+            interface_version = "1.0"
+            network_hosts = ["api.openligadb.de"]
+        "#;
+        let manifest = Manifest::parse(toml).unwrap();
+        assert!(manifest.localized_names.is_empty());
+        assert_eq!(manifest.localized_name("de"), "Bundesliga");
+    }
+
+    #[test]
+    fn rejects_empty_localized_name_value() {
+        let toml = r#"
+            id = "bundesliga"
+            name = "Bundesliga"
+            version = "0.1.0"
+            schema_version = "1.0"
+            interface_version = "1.0"
+            network_hosts = ["api.openligadb.de"]
+
+            [names]
+            de = "   "
+        "#;
+        let err = Manifest::parse(toml).unwrap_err();
+        assert!(matches!(
+            err,
+            ManifestError::InvalidField {
+                field: ManifestField::LocalizedNames,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -312,7 +412,7 @@ mod tests {
     #[test]
     fn interface_version_1_0_is_rejected_after_the_host_fetch_major_bump() {
         // A plugin built before `host.fetch` existed declares interface_version 1.0; the
-        // host's INTERFACE_VERSION is now 2.0 (major bump), so it must not accept it — see
+        // host's INTERFACE_VERSION is now 2.0 (major bump), so it must not accept it - see
         // openspec/changes/add-host-fetch-capability/specs/data-provider-plugin-api/spec.md
         // ("Plugin built before the host-fetch import existed").
         let manifest = Manifest::parse(valid_toml()).unwrap();

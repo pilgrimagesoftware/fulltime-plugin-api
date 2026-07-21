@@ -4,7 +4,9 @@
 ### Added
 
 - Add a required `name` field to `Manifest` for a plugin's human-readable display name,
-  distinct from `id` — hosts must not derive a display name from `id`
+  distinct from `id` (hosts must not derive a display name from `id`)
+- Add an optional `[names]` table for locale-keyed display names, and
+  `Manifest::localized_name` to look one up with fallback to `name`
 
 ## [0.1.1] - 2026-07-20
 
