@@ -19,6 +19,7 @@ use crate::version::Version;
 ///
 /// let toml = r#"
 ///     id = "bundesliga"
+///     name = "Bundesliga"
 ///     version = "0.1.0"
 ///     schema_version = "1.0"
 ///     interface_version = "1.0"
@@ -27,12 +28,17 @@ use crate::version::Version;
 ///
 /// let manifest = Manifest::parse(toml).unwrap();
 /// assert_eq!(manifest.id, "bundesliga");
+/// assert_eq!(manifest.name, "Bundesliga");
 /// assert_eq!(manifest.network_hosts, ["api.openligadb.de"]);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Manifest {
     /// Plugin identifier, unique among plugins the host loads.
     pub id: String,
+    /// Human-readable display name (e.g. `"Bundesliga"`), distinct from
+    /// `id`. A plugin manifest is the only place this is declared — hosts
+    /// must not derive a display name from `id` (e.g. by title-casing it).
+    pub name: String,
     /// Plugin's own release version (not a contract version).
     pub version: String,
     /// Canonical schema version this plugin's output targets.
@@ -48,6 +54,8 @@ pub struct Manifest {
 pub enum ManifestField {
     /// The `id` field.
     Id,
+    /// The `name` field.
+    Name,
     /// The `version` field.
     Version,
     /// The `schema_version` field.
@@ -62,6 +70,7 @@ impl core::fmt::Display for ManifestField {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let name = match self {
             Self::Id => "id",
+            Self::Name => "name",
             Self::Version => "version",
             Self::SchemaVersion => "schema_version",
             Self::InterfaceVersion => "interface_version",
@@ -92,6 +101,7 @@ pub enum ManifestError {
 #[derive(Debug, Deserialize)]
 struct RawManifest {
     id: Option<String>,
+    name: Option<String>,
     version: Option<String>,
     schema_version: Option<String>,
     interface_version: Option<String>,
@@ -120,11 +130,19 @@ impl Manifest {
         let raw: RawManifest = toml::from_str(source)?;
 
         let id = required(raw.id, ManifestField::Id)?;
+        let name = required(raw.name, ManifestField::Name)?;
         let version = required(raw.version, ManifestField::Version)?;
         let schema_version = parse_version(raw.schema_version, ManifestField::SchemaVersion)?;
         let interface_version =
             parse_version(raw.interface_version, ManifestField::InterfaceVersion)?;
         let network_hosts = required(raw.network_hosts, ManifestField::NetworkHosts)?;
+
+        if name.trim().is_empty() {
+            return Err(ManifestError::InvalidField {
+                field: ManifestField::Name,
+                reason: "name must not be empty".to_owned(),
+            });
+        }
 
         if network_hosts.iter().any(|host| host.trim().is_empty()) {
             return Err(ManifestError::InvalidField {
@@ -135,6 +153,7 @@ impl Manifest {
 
         Ok(Self {
             id,
+            name,
             version,
             schema_version,
             interface_version,
@@ -165,6 +184,7 @@ mod tests {
     fn valid_toml() -> &'static str {
         r#"
             id = "bundesliga"
+            name = "Bundesliga"
             version = "0.1.0"
             schema_version = "1.0"
             interface_version = "1.0"
@@ -176,6 +196,7 @@ mod tests {
     fn parses_a_well_formed_manifest() {
         let manifest = Manifest::parse(valid_toml()).unwrap();
         assert_eq!(manifest.id, "bundesliga");
+        assert_eq!(manifest.name, "Bundesliga");
         assert_eq!(manifest.schema_version, Version::new(1, 0));
         assert_eq!(manifest.network_hosts, vec!["api.openligadb.de".to_owned()]);
     }
@@ -186,7 +207,27 @@ mod tests {
         assert!(matches!(
             err,
             ManifestError::InvalidField {
-                field: ManifestField::Version,
+                field: ManifestField::Name,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn rejects_empty_name() {
+        let toml = r#"
+            id = "bundesliga"
+            name = "   "
+            version = "0.1.0"
+            schema_version = "1.0"
+            interface_version = "1.0"
+            network_hosts = ["api.openligadb.de"]
+        "#;
+        let err = Manifest::parse(toml).unwrap_err();
+        assert!(matches!(
+            err,
+            ManifestError::InvalidField {
+                field: ManifestField::Name,
                 ..
             }
         ));
@@ -196,6 +237,7 @@ mod tests {
     fn rejects_malformed_version_string() {
         let toml = r#"
             id = "bundesliga"
+            name = "Bundesliga"
             version = "0.1.0"
             schema_version = "not-a-version"
             interface_version = "1.0"
@@ -215,6 +257,7 @@ mod tests {
     fn rejects_empty_network_host_entry() {
         let toml = r#"
             id = "bundesliga"
+            name = "Bundesliga"
             version = "0.1.0"
             schema_version = "1.0"
             interface_version = "1.0"
@@ -242,6 +285,7 @@ mod tests {
         // this crate performs format validation only.
         let toml = r#"
             id = "x"
+            name = "X"
             version = "0.1.0"
             schema_version = "1.0"
             interface_version = "1.0"
@@ -254,6 +298,7 @@ mod tests {
     fn interface_version_2_0_is_accepted_by_the_current_interface_version() {
         let toml = r#"
             id = "bundesliga"
+            name = "Bundesliga"
             version = "0.1.0"
             schema_version = "1.0"
             interface_version = "2.0"

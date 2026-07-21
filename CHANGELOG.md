@@ -1,6 +1,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add a required `name` field to `Manifest` for a plugin's human-readable display name,
+  distinct from `id` — hosts must not derive a display name from `id`
+
 ## [0.1.1] - 2026-07-20
 
 ### Added
