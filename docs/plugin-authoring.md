@@ -121,7 +121,10 @@ types from a vendored WIT file:
   this crate's own `Team`/`Fixture`/`Standings`/`Competition`/`ProviderError` types
   directly.
 - [`export!`] — the macro that exports your `Guest` implementation as the component's
-  `data-provider` interface.
+  `data-provider` interface. Called from a downstream crate, it needs the `with_types_in`
+  form — the single-arg form only resolves inside this crate itself, since `export!` is
+  `wit-bindgen`-generated and expects to find its supporting types in the crate that
+  declares them.
 
 ```rust,ignore
 struct MyPlugin;
@@ -133,7 +136,7 @@ impl fulltime_plugin_api::Guest for MyPlugin {
     // fetch_fixtures, fetch_results, fetch_standings, fetch_metadata ...
 }
 
-fulltime_plugin_api::export!(MyPlugin);
+fulltime_plugin_api::export!(MyPlugin with_types_in fulltime_plugin_api);
 ```
 
 ## Getting started
@@ -141,11 +144,11 @@ fulltime_plugin_api::export!(MyPlugin);
 1. Add this crate as a dependency:
    ```toml
    [dependencies]
-   fulltime-plugin-api = "0.2"
+   fulltime-plugin-api = "0.1"
    ```
 2. Implement [`Guest`] against your upstream data source, mapping its response shape into
    the canonical schema types, and calling [`host_fetch`] for every upstream request.
-3. Call [`export!`] with your implementation.
+3. Call [`export!`] with the `with_types_in` form against your implementation.
 4. Write your `manifest.toml` declaring the network hosts you call and `interface_version
    = "2.0"`.
 5. Build to a WASM component target and load it against the host runtime in `Apps/rust`.
