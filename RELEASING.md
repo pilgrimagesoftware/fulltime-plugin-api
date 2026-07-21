@@ -3,6 +3,10 @@
 Releases are driven by [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) on `develop` and [`git-cliff`](https://git-cliff.org), via three workflows in `.github/workflows/` (thin wrappers around the `rust-*` reusable workflows in [`pilgrimagesoftware/github-actions`](https://github.com/pilgrimagesoftware/github-actions)).
 There's no manual version bumping or changelog editing.
 
+Because of this, **squash-merging a feature PR into `develop` must preserve the original commit's Conventional Commits type and any `!`/`BREAKING CHANGE:` marker.**
+GitHub's default squash message is the PR title, which usually drops both — `git-cliff` then can't classify the squashed commit, silently produces an empty/no-op changelog section, and under-bumps the version.
+Set the squash subject explicitly, e.g. `gh pr merge <n> --squash --subject "feat!: <description>"`, or merge with a merge commit instead when the PR is a single already-well-formed commit.
+
 ## 1. Prepare the release
 
 Trigger **Prepare Release** manually (Actions tab → Prepare Release → Run workflow). It:

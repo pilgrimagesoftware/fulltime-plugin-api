@@ -17,6 +17,7 @@ Neither the host nor any plugin owns this contract - it is versioned and publish
   Rust bindings are generated from this file via `wit-bindgen`, not hand-written, so the WIT source is the single source of truth.
 - **Plugin manifest format** (`Manifest`): the static TOML file every plugin ships declaring its ID, release version, targeted schema/interface versions, and required network hosts.
   This crate validates structure and field format only - network reachability and capability enforcement belong to the host runtime (`Apps/rust`).
+- **`host` interface and `Guest`/`export!` bindings**: `world plugin` imports `host.fetch` - a plugin has no direct network access and must call this crate's `host_fetch` wrapper for every upstream request. This crate also re-exports the generated `Guest` trait and `export!` macro so a downstream plugin implements and exports the world using this crate's own canonical types, rather than regenerating an incompatible copy from a vendored WIT file.
 
 ## Versioning
 
@@ -29,7 +30,7 @@ See [`Version::accepts`].
 
 ```toml
 [dependencies]
-fulltime-plugin-api = "0.2"
+fulltime-plugin-api = "0.1"
 ```
 
 ```rust

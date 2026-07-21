@@ -1,18 +1,39 @@
 
-## [0.1.1] - 2026-07-20
+## [0.2.0] - 2026-07-21
+
+
+### Added
+
+- Add name and localized [names] display-name fields
+
+
+### Documentation
+
+- Drop spurious "Fixed: Conflicts" changelog entry
+
+- Document squash-merge subject requirement in RELEASING.md
+
+- Fix wrong export! form and stale 0.2 version references
 
 
 ### Fixed
 
 - Conflicts
 
+- Add explicit permissions to CI/release caller workflows
+
+
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-07-20
+### Added
 
+- Add a required `name` field to `Manifest` for a plugin's human-readable display name,
+  distinct from `id` (hosts must not derive a display name from `id`)
+- Add an optional `[names]` table for locale-keyed display names, and
+  `Manifest::localized_name` to look one up with fallback to `name`
 
-## [Unreleased]
+## [0.1.1] - 2026-07-20
 
 ### Added
 
