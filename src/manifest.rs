@@ -61,6 +61,14 @@ pub struct Manifest {
     pub interface_version: Version,
     /// Network hosts this plugin requires access to.
     pub network_hosts: Vec<String>,
+    /// Display name/identifier for the plugin's author or publisher. Display-only;
+    /// does not affect schema/interface compatibility checks.
+    pub developer: Option<String>,
+    /// Timestamp for when the plugin was built, conventionally RFC 3339 (matching
+    /// `Fixture.kickoff`'s convention). Not parsed or validated as a timestamp by
+    /// this crate. Display-only; does not affect schema/interface compatibility
+    /// checks.
+    pub build_date: Option<String>,
 }
 
 impl Manifest {
@@ -91,6 +99,10 @@ pub enum ManifestField {
     NetworkHosts,
     /// The `[names]` table.
     LocalizedNames,
+    /// The `developer` field.
+    Developer,
+    /// The `build_date` field.
+    BuildDate,
 }
 
 impl core::fmt::Display for ManifestField {
@@ -103,6 +115,8 @@ impl core::fmt::Display for ManifestField {
             Self::InterfaceVersion => "interface_version",
             Self::NetworkHosts => "network_hosts",
             Self::LocalizedNames => "names",
+            Self::Developer => "developer",
+            Self::BuildDate => "build_date",
         };
         f.write_str(name)
     }
@@ -136,6 +150,8 @@ struct RawManifest {
     schema_version: Option<String>,
     interface_version: Option<String>,
     network_hosts: Option<Vec<String>>,
+    developer: Option<String>,
+    build_date: Option<String>,
 }
 
 impl Manifest {
@@ -192,6 +208,9 @@ impl Manifest {
             });
         }
 
+        let developer = reject_if_empty(raw.developer, ManifestField::Developer)?;
+        let build_date = reject_if_empty(raw.build_date, ManifestField::BuildDate)?;
+
         Ok(Self {
             id,
             name,
@@ -200,6 +219,8 @@ impl Manifest {
             schema_version,
             interface_version,
             network_hosts,
+            developer,
+            build_date,
         })
     }
 }
@@ -209,6 +230,21 @@ fn required<T>(value: Option<T>, field: ManifestField) -> Result<T, ManifestErro
         field,
         reason: "field is required".to_owned(),
     })
+}
+
+/// Rejects a present-but-empty/whitespace-only optional field, leaving an absent field as
+/// `None`. Mirrors the presence check applied to each `network_hosts` entry.
+fn reject_if_empty(
+    value: Option<String>,
+    field: ManifestField,
+) -> Result<Option<String>, ManifestError> {
+    match value {
+        Some(v) if v.trim().is_empty() => Err(ManifestError::InvalidField {
+            field,
+            reason: format!("{field} must not be empty"),
+        }),
+        other => Ok(other),
+    }
 }
 
 fn parse_version(value: Option<String>, field: ManifestField) -> Result<Version, ManifestError> {
@@ -407,6 +443,72 @@ mod tests {
         let manifest = Manifest::parse(toml).unwrap();
         assert_eq!(manifest.interface_version, Version::new(2, 0));
         assert!(crate::INTERFACE_VERSION.accepts(manifest.interface_version));
+    }
+
+    #[test]
+    fn parses_a_manifest_omitting_developer_and_build_date() {
+        let manifest = Manifest::parse(valid_toml()).unwrap();
+        assert_eq!(manifest.developer, None);
+        assert_eq!(manifest.build_date, None);
+    }
+
+    #[test]
+    fn parses_a_manifest_declaring_developer_and_build_date() {
+        let toml = r#"
+            id = "bundesliga"
+            name = "Bundesliga"
+            version = "0.1.0"
+            schema_version = "1.0"
+            interface_version = "1.0"
+            network_hosts = ["api.openligadb.de"]
+            developer = "Jane Plugin Author"
+            build_date = "2026-07-21T00:00:00Z"
+        "#;
+        let manifest = Manifest::parse(toml).unwrap();
+        assert_eq!(manifest.developer.as_deref(), Some("Jane Plugin Author"));
+        assert_eq!(manifest.build_date.as_deref(), Some("2026-07-21T00:00:00Z"));
+    }
+
+    #[test]
+    fn rejects_empty_developer_field() {
+        let toml = r#"
+            id = "bundesliga"
+            name = "Bundesliga"
+            version = "0.1.0"
+            schema_version = "1.0"
+            interface_version = "1.0"
+            network_hosts = ["api.openligadb.de"]
+            developer = "   "
+        "#;
+        let err = Manifest::parse(toml).unwrap_err();
+        assert!(matches!(
+            err,
+            ManifestError::InvalidField {
+                field: ManifestField::Developer,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn rejects_empty_build_date_field() {
+        let toml = r#"
+            id = "bundesliga"
+            name = "Bundesliga"
+            version = "0.1.0"
+            schema_version = "1.0"
+            interface_version = "1.0"
+            network_hosts = ["api.openligadb.de"]
+            build_date = "   "
+        "#;
+        let err = Manifest::parse(toml).unwrap_err();
+        assert!(matches!(
+            err,
+            ManifestError::InvalidField {
+                field: ManifestField::BuildDate,
+                ..
+            }
+        ));
     }
 
     #[test]

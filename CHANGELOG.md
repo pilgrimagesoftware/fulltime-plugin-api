@@ -32,6 +32,8 @@
   distinct from `id` (hosts must not derive a display name from `id`)
 - Add an optional `[names]` table for locale-keyed display names, and
   `Manifest::localized_name` to look one up with fallback to `name`
+- Add optional `developer` and `build_date` display-only fields to `Manifest`, for a
+  plugin's author/publisher name and build timestamp
 
 ## [0.1.1] - 2026-07-20
 
